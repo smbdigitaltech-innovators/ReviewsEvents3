@@ -10,7 +10,22 @@ if (process.env.NODE_ENV !== 'production' && existsSync(path.join(__dirname, '..
 
 // Read the FIREBASE_SERVICE_ACCOUNT env var which should be the full JSON string.
 let serviceAccount = null;
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+
+// 1) Railway and some platforms mount secrets as files (e.g., /secrets/FIREBASE_SERVICE_ACCOUNT)
+// Allow configuring a path via FIREBASE_SERVICE_ACCOUNT_FILE or use a standard /secrets path.
+const possibleSecretFile = process.env.FIREBASE_SERVICE_ACCOUNT_FILE || '/secrets/FIREBASE_SERVICE_ACCOUNT';
+if (possibleSecretFile && existsSync(possibleSecretFile)) {
+  try {
+    const raw = require('fs').readFileSync(possibleSecretFile, 'utf8');
+    serviceAccount = JSON.parse(raw);
+  } catch (err) {
+    console.error('Failed to read/parse service account from file', possibleSecretFile, err.message);
+    throw err;
+  }
+}
+
+// 2) Fallback to FIREBASE_SERVICE_ACCOUNT env var (supports raw JSON or base64-encoded JSON)
+if (!serviceAccount && process.env.FIREBASE_SERVICE_ACCOUNT) {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
   try {
     let candidate = null;
@@ -26,10 +41,12 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT. Ensure it is valid JSON or base64-encoded JSON.');
     throw err;
   }
-} else {
+}
+
+// 3) Local file fallback for development only
+if (!serviceAccount) {
   const localPath = path.join(__dirname, 'serviceAccountKey.json');
   if (process.env.NODE_ENV !== 'production' && existsSync(localPath)) {
-    // Local fallback for development only
     serviceAccount = require(localPath);
   }
 }
@@ -39,11 +56,22 @@ if (!serviceAccount) {
 }
 
 if (serviceAccount) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
+  // Normalize private_key newlines in case the value was passed with literal "\\n"
+  if (serviceAccount.private_key && typeof serviceAccount.private_key === 'string') {
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+  }
+
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  } catch (err) {
+    // Log a clear error but do not crash the whole process. This allows the service
+    // to start and report issues while still serving non-Firebase endpoints.
+    console.error('Firebase admin initialization failed. Check your service account credentials:', err.message);
+  }
 }
 
-const db = admin.firestore ? admin.firestore() : null;
+const db = (admin.apps && admin.apps.length > 0) ? admin.firestore() : null;
 
 module.exports = { db, admin };

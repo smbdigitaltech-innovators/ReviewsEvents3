@@ -67,10 +67,10 @@ if (process.env.NODE_ENV === 'production') {
     const staticPath = path.join(__dirname, '..', 'frontend', 'build');
     if (existsSync(staticPath)) {
         app.use(express.static(staticPath));
-        // Serve index.html for any unknown routes (client-side routing)
-        app.get('*', (req, res) => {
-            res.sendFile(path.join(staticPath, 'index.html'));
-        });
+                // Serve index.html for any unknown routes (client-side routing)
+                app.use((req, res) => {
+                    res.sendFile(path.join(staticPath, 'index.html'));
+                });
     } else {
         console.warn('Production build not found at', staticPath);
     }
