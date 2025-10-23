@@ -12,8 +12,10 @@ if (process.env.NODE_ENV !== 'production' && existsSync(path.join(__dirname, '..
 let serviceAccount = null;
 
 // 1) Railway and some platforms mount secrets as files (e.g., /secrets/FIREBASE_SERVICE_ACCOUNT)
-// Allow configuring a path via FIREBASE_SERVICE_ACCOUNT_FILE or use a standard /secrets path.
-const possibleSecretFile = process.env.FIREBASE_SERVICE_ACCOUNT_FILE || '/secrets/FIREBASE_SERVICE_ACCOUNT';
+// Only attempt to read a file if the path is explicitly provided via FIREBASE_SERVICE_ACCOUNT_FILE.
+// Do NOT default to '/secrets/FIREBASE_SERVICE_ACCOUNT' because some build systems (Railpack)
+// try to stat that path during build even when it isn't provided and that causes failures.
+const possibleSecretFile = process.env.FIREBASE_SERVICE_ACCOUNT_FILE; // intentionally no default
 if (possibleSecretFile && existsSync(possibleSecretFile)) {
   try {
     const raw = require('fs').readFileSync(possibleSecretFile, 'utf8');

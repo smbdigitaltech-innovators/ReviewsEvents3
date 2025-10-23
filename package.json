@@ -1,0 +1,10 @@
+{
+  "name": "reviewsevents3-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd backend && npm install && npm run build",
+    "start": "cd backend && npm install --production && npm start",
+    "dev": "cd backend && npm run dev"
+  }
+}
