@@ -1,16 +1,26 @@
-const express = require('express');
-const dotenv = require('dotenv');
-const authRoutes = require('./routes/auth');
-const eventRoutes = require('./routes/events');
-const reviewRoutes = require('./routes/reviews');
-const recommendationRoutes = require('./routes/recommendations');
-const analyticRoutes = require('./routes/analytics'); // Import analytics routes
-const notificationRoutes = require('./routes/notifications');
-const userRoutes = require('./routes/users'); // Import user routes
+import express from 'express';
+import dotenv from 'dotenv';
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import authRoutes from './routes/auth.js';
+import eventRoutes from './routes/events.js';
+import reviewRoutes from './routes/reviews.js';
+import recommendationRoutes from './routes/recommendations.js';
+import analyticRoutes from './routes/analytics.js';
+import notificationRoutes from './routes/notifications.js';
+import userRoutes from './routes/users.js';
 
-dotenv.config();
+// Get the directory path of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-const cors = require('cors');
+// Only load dotenv in non-production environments and if .env exists
+if (process.env.NODE_ENV !== 'production' && existsSync(`${__dirname}/.env`)) {
+    dotenv.config();
+}
+
+import cors from 'cors';
 const app = express();
 
 // Middleware

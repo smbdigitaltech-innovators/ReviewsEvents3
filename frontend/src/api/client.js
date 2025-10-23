@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { auth } from '../firebase';
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+
 const client = axios.create({
-  // Use relative base URL so CRA proxy handles CORS in development
-  baseURL: process.env.REACT_APP_API_URL || '',
+  baseURL: API_BASE_URL,
   withCredentials: true, // Important for CORS
   headers: {
     'Content-Type': 'application/json',
