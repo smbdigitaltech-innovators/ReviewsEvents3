@@ -52,12 +52,30 @@ app.use('/api/users', userRoutes);
 // Serve frontend static files in production
 if (process.env.NODE_ENV === 'production') {
     const staticPath = path.join(__dirname, '..', 'frontend', 'build');
-    if (existsSync(staticPath)) {
-        console.log('Serving frontend build from:', staticPath);
-        // Serve static files
-        app.use(express.static(staticPath));
-    } else {
-        console.warn('Production build not found at:', staticPath);
+    console.log('Checking for frontend build at:', staticPath);
+    
+    try {
+        if (existsSync(staticPath)) {
+            console.log('Found frontend build directory');
+            // List the contents of the build directory
+            const buildContents = require('fs').readdirSync(staticPath);
+            console.log('Build directory contents:', buildContents);
+            
+            // Serve static files
+            app.use(express.static(staticPath, {
+                maxAge: '1h',
+                etag: true,
+                lastModified: true
+            }));
+            console.log('Static file middleware configured');
+        } else {
+            console.warn('Production build directory not found at:', staticPath);
+            console.log('Current directory:', __dirname);
+            console.log('Parent directory contents:', require('fs').readdirSync(path.join(__dirname, '..')));
+        }
+    } catch (err) {
+        console.error('Error setting up static file serving:', err);
+        throw err;
     }
 }
 
@@ -96,4 +114,21 @@ if (process.env.NODE_ENV === 'production') {
 
 const PORT = process.env.PORT || 5050;
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Error:', err.message);
+    console.error('Stack:', err.stack);
+    res.status(500).send('Something broke!');
+});
+
+// Start server with error handling
+const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('Current directory:', __dirname);
+    console.log('Frontend build path:', path.join(__dirname, '..', 'frontend', 'build'));
+}).on('error', (err) => {
+    console.error('Server failed to start:', err.message);
+    console.error('Stack:', err.stack);
+    process.exit(1);
+});
