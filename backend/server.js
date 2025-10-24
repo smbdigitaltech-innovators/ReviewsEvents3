@@ -27,8 +27,13 @@ const app = express();
 
 // Middleware
 app.use(express.json()); // For parsing application/json
+// In production, allow the Railway domain and localhost for development
+const allowedOrigins = process.env.NODE_ENV === 'production'
+    ? [process.env.RAILWAY_STATIC_URL, 'https://*.railway.app']
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -44,10 +49,17 @@ app.use('/api/analytics', analyticRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 
-// Basic route for testing
-app.get('/', (req, res) => {
-    res.send('API is running...');
-});
+// Serve frontend static files in production
+if (process.env.NODE_ENV === 'production') {
+    const staticPath = path.join(__dirname, '..', 'frontend', 'build');
+    if (existsSync(staticPath)) {
+        console.log('Serving frontend build from:', staticPath);
+        // Serve static files
+        app.use(express.static(staticPath));
+    } else {
+        console.warn('Production build not found at:', staticPath);
+    }
+}
 
 // Health check endpoint. Returns firebase initialization status and basic info.
 app.get('/health', (req, res) => {
@@ -59,21 +71,29 @@ app.get('/health', (req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 5050;
+// API fallback for when routes aren't matched
+app.get('/api', (req, res) => {
+    res.send('API is running...');
+});
 
-// Serve frontend static files when in production. This allows deploying both frontend and backend
-// in a single Railway service: build the React app to frontend/build, then the backend serves it.
+// Serve index.html for any remaining routes (client-side routing)
 if (process.env.NODE_ENV === 'production') {
     const staticPath = path.join(__dirname, '..', 'frontend', 'build');
     if (existsSync(staticPath)) {
-        app.use(express.static(staticPath));
-                // Serve index.html for any unknown routes (client-side routing)
-                app.use((req, res) => {
-                    res.sendFile(path.join(staticPath, 'index.html'));
-                });
-    } else {
-        console.warn('Production build not found at', staticPath);
+        // Final catch-all route to serve index.html for client-side routing
+        app.use((req, res, next) => {
+            // Skip if it's an API route
+            if (req.path.startsWith('/api/')) {
+                next();
+                return;
+            }
+            res.sendFile(path.join(staticPath, 'index.html'), err => {
+                if (err) next(err);
+            });
+        });
     }
 }
+
+const PORT = process.env.PORT || 5050;
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
